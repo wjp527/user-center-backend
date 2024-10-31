@@ -3,6 +3,7 @@ package com.wjp.usercenter.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wjp.usercenter.common.ErrorCode;
+import com.wjp.usercenter.common.ResultUtils;
 import com.wjp.usercenter.exception.BusinessException;
 import com.wjp.usercenter.mapper.UserMapper;
 import com.wjp.usercenter.model.domain.User;
@@ -11,11 +12,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.wjp.usercenter.constant.UserConstant.USER_LOGIN_STATE;
 
@@ -173,6 +184,59 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
+     * 用户列表查询
+     * @param user
+     * @return
+     */
+    @Override
+    public List<User> searchUsers(User user) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+
+        // 判断用户名是否为空
+        if (StringUtils.isNotBlank(user.getUsername())) {
+            queryWrapper.like("username", user.getUsername());
+        }
+        // 判断用户账号是否为空
+        if(StringUtils.isNotBlank(user.getUserAccount())) {
+            queryWrapper.like("userAccount", user.getUserAccount());
+        }
+        // 判断手机号是否为空
+        if(StringUtils.isNotBlank(user.getPhone())) {
+            queryWrapper.like("phone", user.getPhone());
+        }
+        // 判断用户状态是否为空
+        if(user.getUserStatus() != null) {
+            queryWrapper.eq("userStatus", user.getUserStatus());
+        }
+        // 判断用户角色是否为空
+        if(user.getUserRole() != null) {
+            queryWrapper.eq("userRole", user.getUserRole());
+        }
+
+        // 判断 createTime 是否存在，按指定时间范围过滤
+        if (user.getCreateTime() != null) {
+            // 将 Date 转换为 LocalDateTime
+            LocalDateTime createDateTime = user.getCreateTime().toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDateTime();
+
+            // 设置开始时间为传递的时间
+            LocalDateTime startTime = createDateTime;
+            // 设置结束时间为当天的 23:59:59
+            LocalDateTime endTime = createDateTime.toLocalDate().atTime(23, 59, 59);
+
+            queryWrapper.between("createTime", startTime, endTime);
+        }
+
+        // this.baseMapper: 调用父类的 mapper 对象
+        return this.baseMapper.selectList(queryWrapper).stream()
+                // 脱敏用户信息
+                .map(this::getSafetyUser)
+                .collect(Collectors.toList());
+
+    }
+
+    /**
      * 用户脱敏
      * @param originUser
      * @return 返回脱敏信息
@@ -206,6 +270,70 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         request.getSession().removeAttribute(USER_LOGIN_STATE);
         return 1;
     }
+
+    @Override
+    public int userListUpdate(User user) {
+        System.out.println("user = " + user);
+        int result = userMapper.updateById(user);
+        return result;
+    }
+
+    /**
+     * 用户列表删除
+     * @param id
+     * @return
+     */
+    @Override
+    public Integer userListDelete(Long id) {
+        int result = userMapper.deleteById(id);
+        return result;
+    }
+
+    /**
+     * 用户头像上传
+     * @param file
+     * @param request
+     * @return
+     */
+    @Override
+    public String saveFile(MultipartFile file, HttpServletRequest request) {
+        String originalName = file.getOriginalFilename();
+
+        // 检查文件名是否为空，并确保是图片文件
+        if (originalName == null || !originalName.matches(".*\\.(png|jpg|jpeg|gif|bmp)$")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件类型不支持，只允许上传图片文件");
+        }
+
+        // 获取文件扩展名
+        String fileExtension = originalName.substring(originalName.lastIndexOf("."));
+
+        // 文件保存目录路径
+        String format = new SimpleDateFormat("/yyyy/MM/dd/").format(new Date());
+        String uploadDir = "D:/uploads" + format;
+        File folder = new File(uploadDir);
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+
+        // 生成文件名并加上原始扩展名
+        String newName = UUID.randomUUID().toString() + fileExtension;
+        try {
+            file.transferTo(new File(folder, newName));
+
+            // 生成文件的访问 URL
+            String contextPath = request.getContextPath();
+            String fileUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort()
+                    + contextPath + format + newName;
+
+            return fileUrl;
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "上传失败");
+        }
+    }
+
+
+
+
 }
 
 

@@ -2,8 +2,10 @@ package com.wjp.usercenter.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.wjp.usercenter.model.domain.User;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 用户服务
@@ -35,11 +37,43 @@ public interface UserService extends IService<User> {
     User userLogin(String userAccount, String userPassword, HttpServletRequest request);
 
     /**
+     * 用户列表查询
+     * @param user
+     * @return
+     */
+    List<User> searchUsers(User user);
+
+    /**
      * 获取当前用户(脱敏信息)
      * @param originUser
      */
     User getSafetyUser(User originUser);
 
     int userLogout(HttpServletRequest request);
+
+
+    /**
+     * 更新用户信息
+     * @param user
+     * @return
+     */
+    int userListUpdate(User user);
+
+    /**
+     * 用户列表删除
+     * @param id
+     * @return
+     */
+    Integer  userListDelete(Long id);
+
+    /**
+     * 上传文件
+     * @param file
+     * @param request
+     * @return
+     */
+    String saveFile(MultipartFile file, HttpServletRequest request);
+
+
 
 }

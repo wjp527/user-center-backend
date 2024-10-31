@@ -72,6 +72,11 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
 
 
 
@@ -106,7 +111,7 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.wjp.usercenter.UserCenterApplication</mainClass>
-                    <skip>true</skip>
+<!--                    <skip>true</skip>-->
                 </configuration>
                 <executions>
                     <execution>

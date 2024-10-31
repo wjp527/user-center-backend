@@ -12,10 +12,17 @@ import com.wjp.usercenter.service.UserService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.wjp.usercenter.constant.UserConstant.ADMIN_ROLE;
@@ -77,33 +84,19 @@ public class UserController {
 
     /**
      * 搜索用户数据
-     * @param username
+     * @param user
      * @return
      */
-    @GetMapping("/search")
-    public BaseResponse<List<User>> searchUsers(String username, HttpServletRequest request) {
+    @PostMapping("/search")
+    public BaseResponse<List<User>> searchUsers(@RequestBody User user, HttpServletRequest request) {
         boolean admin = isAdmin(request);
         // 仅管理员可查询
-        if(!admin) {
+        if (!admin) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        // 判断用户名是否为空
-        if(StringUtils.isNotBlank(username)) {
-            queryWrapper.like("username", username);
-        }
-
-        List<User> userList = userService.list(queryWrapper);
-        List<User> collectUserList = userList.stream().map(user -> {
-            // 获取用户脱敏信息
-            User safetyUser = userService.getSafetyUser(user);
-            return safetyUser;
-        }).collect(Collectors.toList());
-
-//        return collectUserList;
-        return ResultUtils.success(collectUserList);
+        List<User> users = userService.searchUsers(user);
+        return ResultUtils.success(users);
     }
-
     /**
      * 删除用户数据
      * @param id
@@ -171,5 +164,50 @@ public class UserController {
         }
         int result = userService.userLogout(request);
         return  ResultUtils.success(result);
+    }
+
+    /**
+     * 更新用户信息
+     * @param user
+     */
+    @PostMapping("/userList/update")
+    public BaseResponse<Integer> userUserListUpdate(@RequestBody User user) {
+        if(user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
+        int result = userService.userListUpdate(user);
+        return ResultUtils.success(result);
+    }
+
+    @PostMapping("/userList/delete/{id}")
+    public BaseResponse<Integer> userUserListDelete(@PathVariable Long id) {
+        if(id == 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
+        return ResultUtils.success(userService.userListDelete(id));
+    }
+
+
+//    @PostMapping("/upload")
+//    public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+//
+//    }
+
+
+    @PostMapping("/upload")
+    public BaseResponse<String> uploadFile(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+
+        // 检查文件是否为空
+        if (file.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件不能为空");
+        }
+
+        // 获取文件名
+        String originalFilename = file.getOriginalFilename();
+
+        // 处理文件保存逻辑
+        String filePath = userService.saveFile(file, request); // 调用服务方法保存文件
+        return ResultUtils.success(filePath);
+
     }
 }
